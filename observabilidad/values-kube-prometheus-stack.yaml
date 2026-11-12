@@ -1,0 +1,27 @@
+# Alertmanager deshabilitado (no se usa en esta práctica)
+alertmanager:
+  enabled: false
+
+grafana:
+  # Con menos de 512Mi el contenedor se reinicia por OOM al cargar la interfaz
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  # Loki como datasource desde el archivo de valores (no manualmente desde la UI)
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.observabilidad.svc.cluster.local:3100
+      isDefault: false
+
+# En minikube estos componentes escuchan métricas solo en 127.0.0.1 del nodo,
+# por lo que Prometheus no puede scrapearlos por la IP del nodo (targets down).
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false

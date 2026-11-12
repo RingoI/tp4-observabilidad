@@ -1,0 +1,59 @@
+alloy:
+  configMap:
+    content: |
+      // 1) Descubrir los pods del clúster
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // 2) Agregar labels: namespace, pod, container y app
+      discovery.relabel "pod_logs" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+        }
+      }
+
+      // 3) Leer los logs de los pods
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pod_logs.output
+        forward_to = [loki.process.api.receiver]
+      }
+
+      // 4) Solo para la API: extraer "level" del JSON y usarlo como label
+      loki.process "api" {
+        stage.match {
+          selector = "{app=\"gamecloud-ranking\"}"
+
+          stage.json {
+            expressions = { level = "level" }
+          }
+
+          stage.labels {
+            values = { level = "" }
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // 5) Enviar a Loki
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.observabilidad.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }
